@@ -11,6 +11,52 @@ import numpy as np
 from recognition.matcher import match_face
 
 
+def detect_and_recognise_rgb(
+    rgb_frame: Any,
+    known_encodings_list: list[dict[str, Any]],
+    match_threshold: float = 0.5,
+) -> list[dict[str, Any]]:
+    """
+    Same as detect_and_recognise but accepts an RGB image (e.g. BGR flipped with [:, :, ::-1]).
+
+    face_location tuples are in the same pixel space as rgb_frame (caller may scale to full resolution).
+    """
+    if rgb_frame is None or rgb_frame.size == 0:
+        return []
+
+    face_locations = face_recognition.face_locations(rgb_frame)
+    if not face_locations:
+        return []
+
+    face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+    results: list[dict[str, Any]] = []
+
+    for encoding, location in zip(face_encodings, face_locations):
+        encoding_arr = np.asarray(encoding, dtype=np.float64)
+        matched = match_face(encoding_arr, known_encodings_list, threshold=match_threshold)
+
+        if matched:
+            results.append(
+                {
+                    "name": matched["name"],
+                    "roll_number": matched["roll_number"],
+                    "confidence": matched["confidence"],
+                    "face_location": location,
+                }
+            )
+        else:
+            results.append(
+                {
+                    "name": None,
+                    "roll_number": None,
+                    "confidence": None,
+                    "face_location": location,
+                }
+            )
+
+    return results
+
+
 def detect_and_recognise(
     frame: Any,
     known_encodings_list: list[dict[str, Any]],

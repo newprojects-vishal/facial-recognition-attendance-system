@@ -3,13 +3,21 @@
 from __future__ import annotations
 
 import datetime as dt
+import time
 
 import cv2
 
-from recognition.detector import detect_and_recognise
+from recognition.detector import detect_and_recognise_rgb
 from recognition.encoder import load_encodings
 
 WINDOW_TITLE = "Attendance System — Press Q to quit"
+
+# Recognition runs on frames scaled to 25%; map boxes back to full resolution.
+_RECOG_SCALE = 0.25
+_FULL_SCALE = int(1.0 / _RECOG_SCALE)  # 4
+
+# Run face_recognition only every N frames; other frames reuse last results.
+_RECOG_FRAME_INTERVAL = 3
 
 
 def _draw_status_panel(
@@ -18,10 +26,12 @@ def _draw_status_panel(
     y: int,
     marked_count: int,
     now: dt.datetime,
+    fps: float,
 ) -> None:
-    """Semi-opaque panel top-left: students marked this session + clock."""
+    """Semi-opaque panel top-left: students marked, FPS, clock."""
     lines = [
         f"Students marked today: {marked_count}",
+        f"FPS: {fps:.1f}",
         now.strftime("%Y-%m-%d %H:%M:%S"),
     ]
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -68,6 +78,27 @@ def _draw_text_lines(
         y += line_step
 
 
+def _scale_detections_to_full(
+    detections: list[dict], scale: int
+) -> list[dict]:
+    """Map face_location from small RGB frame coords to full-size frame coords."""
+    scaled: list[dict] = []
+    for det in detections:
+        top, right, bottom, left = det["face_location"]
+        scaled.append(
+            {
+                **det,
+                "face_location": (
+                    int(top * scale),
+                    int(right * scale),
+                    int(bottom * scale),
+                    int(left * scale),
+                ),
+            }
+        )
+    return scaled
+
+
 def run_recognition_session(
     camera_index: int = 0,
     match_threshold: float = 0.5,
@@ -92,6 +123,12 @@ def run_recognition_session(
     marked_details: dict[str, dict[str, str | float]] = {}
     session_matches: list[dict[str, str | float]] = []
 
+    # Start at -1 so after first increment (0) we run recognition on the first frame, then every 3rd.
+    frame_count = -1
+    last_detections: list[dict] = []
+    prev_time = time.time()
+    fps_display = 0.0
+
     try:
         while True:
             ok, frame = cap.read()
@@ -102,13 +139,29 @@ def run_recognition_session(
             display = frame.copy()
             now = dt.datetime.now()
 
-            try:
-                detections = detect_and_recognise(frame, known, match_threshold=match_threshold)
-            except Exception as error:
-                print(f"Detection error: {error}")
-                detections = []
+            now_time = time.time()
+            dt_s = now_time - prev_time
+            if dt_s > 0:
+                fps_display = 1.0 / dt_s
+            prev_time = now_time
 
-            _draw_status_panel(display, 10, 10, len(already_marked), now)
+            frame_count += 1
+            if frame_count % _RECOG_FRAME_INTERVAL == 0:
+                small_frame = cv2.resize(frame, (0, 0), fx=_RECOG_SCALE, fy=_RECOG_SCALE)
+                # OpenCV BGR → RGB for face_recognition
+                rgb_frame = small_frame[:, :, ::-1]
+                try:
+                    raw = detect_and_recognise_rgb(
+                        rgb_frame, known, match_threshold=match_threshold
+                    )
+                    last_detections = _scale_detections_to_full(raw, _FULL_SCALE)
+                except Exception as error:
+                    print(f"Detection error: {error}")
+                    # Keep previous last_detections on error
+
+            detections = last_detections
+
+            _draw_status_panel(display, 10, 10, len(already_marked), now, fps_display)
 
             for det in detections:
                 top, right, bottom, left = det["face_location"]
