@@ -8,7 +8,7 @@ from pathlib import Path
 import face_recognition
 import numpy as np
 
-# Default folder where registration saves captures (see registration/register_student.py).
+# Add photos manually here (see README naming rules), then run train / build_encodings().
 DEFAULT_PHOTOS_DIR = Path("data/student_photos")
 ENCODINGS_PATH = Path("data/encodings.pkl")
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}

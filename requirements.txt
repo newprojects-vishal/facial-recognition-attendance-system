@@ -1,8 +1,5 @@
 opencv-python
 face-recognition
 numpy
-supabase
 python-dotenv
 Pillow
-pandas
-openpyxl
