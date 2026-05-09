@@ -18,22 +18,26 @@ def _parse_photo_filename(stem: str) -> tuple[str, str]:
     """
     Parse rollnumber_firstname_lastname... from the file stem.
 
-    Examples:
-      101_Vishal_Wadekar -> roll 101, name "Vishal Wadekar"
-      101_Vishal_2 -> roll 101, name "Vishal" (numeric-only segments dropped)
-      101_Vishal_Wadekar_2 -> roll 101, name "Vishal Wadekar"
+    Split on "_"; first token is roll number; remaining tokens are name words
+    after dropping segments where str.isdigit() is true (variant suffixes).
 
-    First segment is always the roll number; remaining segments become name
-    words, excluding parts that are only digits (photo variant suffixes).
+    The display name is joined with spaces and passed through .title().
+
+    Examples:
+      101_Vishal_7 -> roll 101, name "Vishal"
+      101_Vishal_Wadekar -> roll 101, name "Vishal Wadekar"
+      101_Vishal_Wadekar_2 -> roll 101, name "Vishal Wadekar"
+      101_vishal_3 -> roll 101, name "Vishal"
     """
     parts = stem.split("_")
     if len(parts) < 2:
         cleaned = stem.strip()
-        return cleaned, cleaned
+        return cleaned, cleaned.title() if cleaned else cleaned
 
     roll_number = parts[0].strip()
     name_segments = [p for p in parts[1:] if p and not p.isdigit()]
-    name = " ".join(name_segments).strip() or roll_number
+    joined = " ".join(name_segments).strip()
+    name = joined.title() if joined else roll_number
     return roll_number, name
 
 

@@ -16,14 +16,12 @@ def _draw_status_panel(
     frame,
     x: int,
     y: int,
-    faces_session_total: int,
     marked_count: int,
     now: dt.datetime,
 ) -> None:
-    """Semi-opaque panel top-left with session stats and clock."""
+    """Semi-opaque panel top-left: students marked this session + clock."""
     lines = [
-        f"Total faces detected this session: {faces_session_total}",
-        f"Total attendance marked this session: {marked_count}",
+        f"Students marked today: {marked_count}",
         now.strftime("%Y-%m-%d %H:%M:%S"),
     ]
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -92,7 +90,6 @@ def run_recognition_session(
     # Session state (in-memory only; no database writes here).
     already_marked: set[str] = set()
     marked_details: dict[str, dict[str, str | float]] = {}
-    session_faces_total = 0
     session_matches: list[dict[str, str | float]] = []
 
     try:
@@ -111,9 +108,7 @@ def run_recognition_session(
                 print(f"Detection error: {error}")
                 detections = []
 
-            session_faces_total += len(detections)
-
-            _draw_status_panel(display, 10, 10, session_faces_total, len(already_marked), now)
+            _draw_status_panel(display, 10, 10, len(already_marked), now)
 
             for det in detections:
                 top, right, bottom, left = det["face_location"]
