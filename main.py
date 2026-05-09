@@ -41,16 +41,7 @@ def main() -> None:
                 print(f"Training error: {error}")
         elif choice == "3":
             try:
-                matches = run_recognition_session()
-                if matches:
-                    print("\nSession summary — matched students:")
-                    for row in matches:
-                        print(
-                            f"  {row['name']} ({row['roll_number']}) "
-                            f"confidence={float(row['confidence']):.3f}"
-                        )
-                else:
-                    print("\nNo confirmed matches recorded this session.")
+                run_recognition_session()
             except Exception as error:
                 print(f"Attendance session error: {error}")
         elif choice == "4":
