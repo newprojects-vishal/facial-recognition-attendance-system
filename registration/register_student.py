@@ -42,10 +42,18 @@ def _upload_photo_to_supabase(photo_path: Path, storage_path: str) -> str:
         raise
 
 
-def _save_frame(frame, roll_number: str) -> Path:
-    """Save the captured frame locally under the student's roll number."""
+def _safe_photo_stem(roll_number: str, name: str) -> str:
+    """Build filename stem rollnumber_studentname for encoder compatibility."""
+    cleaned = "".join(c if c not in '<>:"/\\|?*' else "_" for c in name.strip())
+    cleaned = cleaned.replace(" ", "_").strip("_") or "student"
+    return f"{roll_number.strip()}_{cleaned}"
+
+
+def _save_frame(frame, roll_number: str, name: str) -> Path:
+    """Save the captured frame under data/student_photos as rollnumber_studentname.jpg."""
     PHOTO_DIR.mkdir(parents=True, exist_ok=True)
-    photo_path = PHOTO_DIR / f"{roll_number}.jpg"
+    stem = _safe_photo_stem(roll_number, name)
+    photo_path = PHOTO_DIR / f"{stem}.jpg"
     cv2.imwrite(str(photo_path), frame)
     return photo_path
 
@@ -114,8 +122,8 @@ def register_student() -> None:
             cv2.waitKey(500)
 
             face_encoding_json = json.dumps(face_encodings[0].tolist())
-            photo_path = _save_frame(frame, roll_number)
-            storage_path = f"{roll_number}.jpg"
+            photo_path = _save_frame(frame, roll_number, name)
+            storage_path = photo_path.name
             profile_photo_url = _upload_photo_to_supabase(photo_path, storage_path)
 
             student_data = {
