@@ -31,7 +31,7 @@ def detect_and_recognise_fast(
     inv_scale = int(1.0 / scale)
 
     small = cv2.resize(frame_bgr, (0, 0), fx=scale, fy=scale)
-    small_rgb = small[:, :, ::-1]
+    small_rgb = np.ascontiguousarray(small[:, :, ::-1])
 
     face_locations_small = face_recognition.face_locations(small_rgb)
     if not face_locations_small:
@@ -43,7 +43,7 @@ def detect_and_recognise_fast(
         for (top, right, bottom, left) in face_locations_small
     ]
 
-    full_rgb = frame_bgr[:, :, ::-1]
+    full_rgb = np.ascontiguousarray(frame_bgr[:, :, ::-1])
     face_encodings = face_recognition.face_encodings(full_rgb, face_locations_full)
 
     results: list[dict[str, Any]] = []
@@ -88,7 +88,7 @@ def detect_and_recognise(
         return []
 
     try:
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        rgb = np.ascontiguousarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     except cv2.error as error:
         print(f"Failed to convert frame to RGB: {error}")
         return []
