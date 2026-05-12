@@ -11,27 +11,43 @@ import numpy as np
 from recognition.matcher import match_face
 
 
-def detect_and_recognise_rgb(
-    rgb_frame: Any,
+def detect_and_recognise_fast(
+    frame_bgr: Any,
     known_encodings_list: list[dict[str, Any]],
     match_threshold: float = 0.5,
+    scale: float = 0.25,
 ) -> list[dict[str, Any]]:
     """
-    Same as detect_and_recognise but accepts an RGB image (e.g. BGR flipped with [:, :, ::-1]).
+    Fast detection + recognition pipeline for live camera use.
 
-    face_location tuples are in the same pixel space as rgb_frame (caller may scale to full resolution).
+    Detects faces on a downscaled frame (speed), but computes encodings on the
+    full-size frame (dlib-bin compatibility — small images cause descriptor errors).
+
+    Returns results with face_location in FULL frame pixel coordinates.
     """
-    if rgb_frame is None or rgb_frame.size == 0:
+    if frame_bgr is None or frame_bgr.size == 0:
         return []
 
-    face_locations = face_recognition.face_locations(rgb_frame)
-    if not face_locations:
+    inv_scale = int(1.0 / scale)
+
+    small = cv2.resize(frame_bgr, (0, 0), fx=scale, fy=scale)
+    small_rgb = small[:, :, ::-1]
+
+    face_locations_small = face_recognition.face_locations(small_rgb)
+    if not face_locations_small:
         return []
 
-    face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
+    # Scale locations back to full resolution for encoding on the full image.
+    face_locations_full = [
+        (top * inv_scale, right * inv_scale, bottom * inv_scale, left * inv_scale)
+        for (top, right, bottom, left) in face_locations_small
+    ]
+
+    full_rgb = frame_bgr[:, :, ::-1]
+    face_encodings = face_recognition.face_encodings(full_rgb, face_locations_full)
+
     results: list[dict[str, Any]] = []
-
-    for encoding, location in zip(face_encodings, face_locations):
+    for encoding, location in zip(face_encodings, face_locations_full):
         encoding_arr = np.asarray(encoding, dtype=np.float64)
         matched = match_face(encoding_arr, known_encodings_list, threshold=match_threshold)
 

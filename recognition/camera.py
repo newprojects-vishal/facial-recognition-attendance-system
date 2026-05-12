@@ -7,14 +7,13 @@ import time
 
 import cv2
 
-from recognition.detector import detect_and_recognise_rgb
+from recognition.detector import detect_and_recognise_fast
 from recognition.encoder import load_encodings
 
 WINDOW_TITLE = "Attendance System — Press Q to quit"
 
-# Recognition runs on frames scaled to 25%; map boxes back to full resolution.
+# Detection uses 25% scale internally for speed; encoding runs on full frame for accuracy.
 _RECOG_SCALE = 0.25
-_FULL_SCALE = int(1.0 / _RECOG_SCALE)  # 4
 
 # Run face_recognition only every N frames; other frames reuse last results.
 _RECOG_FRAME_INTERVAL = 3
@@ -78,25 +77,6 @@ def _draw_text_lines(
         y += line_step
 
 
-def _scale_detections_to_full(
-    detections: list[dict], scale: int
-) -> list[dict]:
-    """Map face_location from small RGB frame coords to full-size frame coords."""
-    scaled: list[dict] = []
-    for det in detections:
-        top, right, bottom, left = det["face_location"]
-        scaled.append(
-            {
-                **det,
-                "face_location": (
-                    int(top * scale),
-                    int(right * scale),
-                    int(bottom * scale),
-                    int(left * scale),
-                ),
-            }
-        )
-    return scaled
 
 
 def run_recognition_session(
@@ -147,17 +127,12 @@ def run_recognition_session(
 
             frame_count += 1
             if frame_count % _RECOG_FRAME_INTERVAL == 0:
-                small_frame = cv2.resize(frame, (0, 0), fx=_RECOG_SCALE, fy=_RECOG_SCALE)
-                # OpenCV BGR → RGB for face_recognition
-                rgb_frame = small_frame[:, :, ::-1]
                 try:
-                    raw = detect_and_recognise_rgb(
-                        rgb_frame, known, match_threshold=match_threshold
+                    last_detections = detect_and_recognise_fast(
+                        frame, known, match_threshold=match_threshold, scale=_RECOG_SCALE
                     )
-                    last_detections = _scale_detections_to_full(raw, _FULL_SCALE)
                 except Exception as error:
                     print(f"Detection error: {error}")
-                    # Keep previous last_detections on error
 
             detections = last_detections
 
